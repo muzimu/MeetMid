@@ -3,6 +3,13 @@
 
 cd "$(dirname "$0")"
 
+# 项目 .env 是本地启动的配置源，覆盖终端里可能残留的旧变量
+if [ -f ".env" ]; then
+  set -a
+  source ".env"
+  set +a
+fi
+
 # 检查虚拟环境
 if [ ! -d "venv" ]; then
   echo "正在创建虚拟环境（Python 3.10）..."

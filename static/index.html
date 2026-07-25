@@ -782,6 +782,21 @@
     .empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; }
     .empty-state p { font-size: 13px; line-height: 1.6; }
 
+    .participant-card { border-left: 3px solid var(--participant-color); }
+    .participant-head { display:flex;align-items:center;gap:8px;margin-bottom:10px; }
+    .participant-index { width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;flex:0 0 auto; }
+    .participant-name { min-width:0;flex:1;background:transparent;border:0;border-bottom:1px solid var(--border);color:var(--text);font-size:14px;font-weight:600;padding:4px 2px;outline:none; }
+    .participant-name:focus { border-color:var(--primary); }
+    .participant-remove { border:0;background:transparent;color:var(--text2);cursor:pointer;padding:4px 6px;font-size:16px; }
+    .participant-remove:hover { color:var(--danger); }
+    .participant-pref-label { color:var(--text2);font-size:11px;margin:9px 0 5px; }
+    .route-list { display:grid;gap:6px;margin-top:10px; }
+    .route-row { display:grid;grid-template-columns:minmax(80px,1fr) auto;gap:8px;align-items:center;padding:7px 9px;background:var(--surface);border-left:3px solid var(--participant-color);border-radius:4px; }
+    .route-person { min-width:0;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+    .route-summary { text-align:right;font-size:12px; }
+    .route-detail { display:block;color:var(--text2);font-size:11px;margin-top:2px; }
+    .fairness-metrics { display:flex;flex-wrap:wrap;gap:6px;margin-top:8px; }
+
     /* ── Scrollbar ── */
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -805,63 +820,16 @@
   <div class="panel" id="leftPanel">
     <div class="panel-content" id="panelContent">
 
-      <!-- Location A -->
-      <div class="card">
-        <div class="card-title">
-          <span class="dot dot-a"></span>
-          地点 A（出发地）
-        </div>
-        <div class="search-wrapper">
-          <div class="search-row">
-            <input class="search-input" id="searchA"
-              placeholder="输入地址搜索，或点击地图选择..."
-              oninput="onSearchInput('A')"
-              onkeydown="if(event.key==='Enter') searchLocation('A')" />
-            <button class="btn-small btn-secondary" onclick="searchLocation('A')">搜索</button>
-          </div>
-          <div class="search-dropdown" id="dropdownA"></div>
-        </div>
-        <div class="location-item" id="locA" onclick="startMapClick('A')">
-          <div class="badge badge-a">A</div>
-          <div class="loc-info">
-            <div class="loc-name" id="locAName">未选择</div>
-            <div class="loc-coords" id="locACoords" style="display:none"></div>
-          </div>
-          <span class="loc-hint" id="locAHint">点击地图选择</span>
-        </div>
-      </div>
-
-      <!-- Location B -->
-      <div class="card">
-        <div class="card-title">
-          <span class="dot dot-b"></span>
-          地点 B（对方位置）
-        </div>
-        <div class="search-wrapper">
-          <div class="search-row">
-            <input class="search-input" id="searchB"
-              placeholder="输入地址搜索，或点击地图选择..."
-              oninput="onSearchInput('B')"
-              onkeydown="if(event.key==='Enter') searchLocation('B')" />
-            <button class="btn-small btn-secondary" onclick="searchLocation('B')">搜索</button>
-          </div>
-          <div class="search-dropdown" id="dropdownB"></div>
-        </div>
-        <div class="location-item" id="locB" onclick="startMapClick('B')">
-          <div class="badge badge-b">B</div>
-          <div class="loc-info">
-            <div class="loc-name" id="locBName">未选择</div>
-            <div class="loc-coords" id="locBCoords" style="display:none"></div>
-          </div>
-          <span class="loc-hint" id="locBHint">点击地图选择</span>
-        </div>
-      </div>
+      <!-- Participants -->
+      <div id="participantsList"></div>
+      <button class="btn-small btn-secondary" id="addParticipantBtn" onclick="addParticipant()"
+        style="width:100%;margin-bottom:12px;">＋ 添加参与者（最多 8 人）</button>
 
       <!-- Query -->
       <div class="card">
         <div class="card-title">💬 需求描述</div>
         <textarea class="query-area" id="queryInput"
-          placeholder="例如：找两地中间评分高的鲁菜餐厅&#10;或：找地铁方便、环境好的咖啡馆"></textarea>
+          placeholder="例如：找大家都方便、评分高的鲁菜餐厅&#10;或：找地铁方便、环境好的咖啡馆"></textarea>
         <div class="query-examples">
           <span class="example-tag" onclick="setExample('评分高的鲁菜餐厅')">🍲 鲁菜</span>
           <span class="example-tag" onclick="setExample('好吃的北京烤鸭')">🦆 烤鸭</span>
@@ -873,30 +841,6 @@
           <span class="example-tag" onclick="setExample('评分高的电影院')">🎬 电影院</span>
           <span class="example-tag" onclick="setExample('评分好的KTV')">🎤 KTV</span>
           <span class="example-tag" onclick="setExample('好吃的甜品店')">🧁 甜品</span>
-        </div>
-
-        <!-- A 出行方式 -->
-        <div style="display:flex;align-items:center;gap:6px;margin-top:14px;margin-bottom:6px;">
-          <div class="card-title" style="margin:0;">🔵 A 的出行方式</div>
-        </div>
-        <div class="transport-pref" id="prefA">
-          <button class="pref-btn active" data-mode="auto" onclick="setPrefAB('A',this)">⚡ 最快</button>
-          <button class="pref-btn" data-mode="transit" onclick="setPrefAB('A',this)">🚇 地铁</button>
-          <button class="pref-btn" data-mode="cycling" onclick="setPrefAB('A',this)">🚲 骑行</button>
-          <button class="pref-btn" data-mode="driving" onclick="setPrefAB('A',this)">🚗 驾车</button>
-          <button class="pref-btn" data-mode="walking" onclick="setPrefAB('A',this)">🚶 步行</button>
-        </div>
-
-        <!-- B 出行方式 -->
-        <div style="display:flex;align-items:center;gap:6px;margin-top:10px;margin-bottom:6px;">
-          <div class="card-title" style="margin:0;">🟠 B 的出行方式</div>
-        </div>
-        <div class="transport-pref" id="prefB">
-          <button class="pref-btn active" data-mode="auto" onclick="setPrefAB('B',this)">⚡ 最快</button>
-          <button class="pref-btn" data-mode="transit" onclick="setPrefAB('B',this)">🚇 地铁</button>
-          <button class="pref-btn" data-mode="cycling" onclick="setPrefAB('B',this)">🚲 骑行</button>
-          <button class="pref-btn" data-mode="driving" onclick="setPrefAB('B',this)">🚗 驾车</button>
-          <button class="pref-btn" data-mode="walking" onclick="setPrefAB('B',this)">🚶 步行</button>
         </div>
 
         <!-- 出发时间 -->
@@ -940,7 +884,7 @@
           </li>
           <li class="loading-step" id="step4">
             <div class="step-icon">4</div>
-            A/B 分别计算最优路线（无LLM，纯API）
+            为所有参与者计算最优路线（纯 API）
           </li>
           <li class="loading-step" id="step5">
             <div class="step-icon">5</div>
@@ -970,8 +914,7 @@
               ">
               <option value="5">显示5个</option>
               <option value="10">显示10个</option>
-              <option value="15">显示15个</option>
-              <option value="20" selected>显示20个</option>
+              <option value="12">显示12个</option>
             </select>
           </div>
         </div>
@@ -980,28 +923,8 @@
         <!-- 重新计算路线 -->
         <div class="card" id="recalcCard" style="margin-top:12px;">
           <div class="card-title" style="margin-bottom:10px;">🔄 切换出行方式重算路线</div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">
-            修改出行方式后点击"重新计算"，无需重新搜索
-          </div>
-          <div style="margin-bottom:8px;">
-            <div style="font-size:12px;color:#4FC3F7;margin-bottom:4px;">🔵 A 的出行方式</div>
-            <div class="transport-pref" id="recalcPrefA">
-              <button class="pref-btn active" data-mode="auto" onclick="setPrefAB('A',this,'recalcPrefA')">⚡ 最快</button>
-              <button class="pref-btn" data-mode="transit" onclick="setPrefAB('A',this,'recalcPrefA')">🚇 地铁</button>
-              <button class="pref-btn" data-mode="cycling" onclick="setPrefAB('A',this,'recalcPrefA')">🚲 骑行</button>
-              <button class="pref-btn" data-mode="driving" onclick="setPrefAB('A',this,'recalcPrefA')">🚗 驾车</button>
-              <button class="pref-btn" data-mode="walking" onclick="setPrefAB('A',this,'recalcPrefA')">🚶 步行</button>
-            </div>
-          </div>
-          <div style="margin-bottom:12px;">
-            <div style="font-size:12px;color:#FF8A65;margin-bottom:4px;">🟠 B 的出行方式</div>
-            <div class="transport-pref" id="recalcPrefB">
-              <button class="pref-btn active" data-mode="auto" onclick="setPrefAB('B',this,'recalcPrefB')">⚡ 最快</button>
-              <button class="pref-btn" data-mode="transit" onclick="setPrefAB('B',this,'recalcPrefB')">🚇 地铁</button>
-              <button class="pref-btn" data-mode="cycling" onclick="setPrefAB('B',this,'recalcPrefB')">🚲 骑行</button>
-              <button class="pref-btn" data-mode="driving" onclick="setPrefAB('B',this,'recalcPrefB')">🚗 驾车</button>
-              <button class="pref-btn" data-mode="walking" onclick="setPrefAB('B',this,'recalcPrefB')">🚶 步行</button>
-            </div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            修改上方参与者的出行方式后重新计算
           </div>
           <button class="btn-submit" id="recalcBtn" onclick="recalcRoutes()"
             style="padding:10px;font-size:14px;">
@@ -1024,12 +947,7 @@
       <span id="tipText">点击地图选择地点</span>
     </div>
     <div class="mode-bar" id="modeBar" style="display:none;">
-      <button class="mode-btn active" id="modeA" onclick="startMapClick('A')">
-        📍 选地点A
-      </button>
-      <button class="mode-btn" id="modeB" onclick="startMapClick('B')">
-        📍 选地点B
-      </button>
+      <span id="mapModeLabel">选择参与者地点</span>
       <button class="mode-btn" onclick="clearMapMode()">取消</button>
     </div>
   </div>
@@ -1072,19 +990,120 @@
 // 全局状态
 // ─────────────────────────────────────────────
 let map = null;
-let mapClickMode = null;  // 'A' | 'B' | null
-let markerA = null, markerB = null, markerMid = null;
-let restaurantMarkers = [];   // AMap.Marker 实例数组，与 allPoisData 下标对应
+let mapClickMode = null;
+let markerMid = null;
+const participantMarkers = {};
+let restaurantMarkers = [];
 let infoWindow = null;
 
-const locationData = { A: null, B: null };
-let preferA = 'auto';           // A 的出行方式
-let preferB = 'auto';           // B 的出行方式
-let departureTime = null;       // 出发时间 "HH:MM" 或 null
-let searchDebounceTimer = null; // 输入防抖
-let currentSessionId = null;    // 当前搜索 Session ID（用于路线重算）
-let allPoisData = [];           // 完整的 POI 列表（最多20条），用于切换显示数量
-let currentHighlightIdx = -1;   // 当前高亮的地点索引
+const PARTICIPANT_COLORS = ['#4FC3F7', '#FF8A65', '#66BB6A', '#AB47BC', '#FFCA28', '#26A69A', '#EC407A', '#78909C'];
+let participantSequence = 2;
+let participants = [
+  { id: 'p1', name: '参与者 1', location: null, preference: 'auto', color: PARTICIPANT_COLORS[0] },
+  { id: 'p2', name: '参与者 2', location: null, preference: 'auto', color: PARTICIPANT_COLORS[1] },
+];
+let departureTime = null;
+let searchDebounceTimer = null;
+let currentSessionId = null;
+let allPoisData = [];
+let currentHighlightIdx = -1;
+
+function escapeHtml(value) {
+  const div = document.createElement('div');
+  div.textContent = String(value ?? '');
+  return div.innerHTML;
+}
+
+function getParticipant(id) {
+  return participants.find(participant => participant.id === id);
+}
+
+function renderParticipants() {
+  const list = document.getElementById('participantsList');
+  list.innerHTML = '';
+  participants.forEach((participant, index) => {
+    const card = document.createElement('div');
+    card.className = 'card participant-card';
+    card.style.setProperty('--participant-color', participant.color);
+    const locationName = participant.location?.name || '';
+    card.innerHTML = `
+      <div class="participant-head">
+        <span class="participant-index" style="background:${participant.color}">${index + 1}</span>
+        <input class="participant-name" value="${escapeHtml(participant.name)}" maxlength="20"
+          aria-label="参与者名称" oninput="updateParticipantName('${participant.id}', this.value)" />
+        ${participants.length > 2 ? `<button class="participant-remove" title="删除参与者" aria-label="删除参与者" onclick="removeParticipant('${participant.id}')">×</button>` : ''}
+      </div>
+      <div class="search-wrapper">
+        <div class="search-row">
+          <input class="search-input" id="search-${participant.id}" value="${escapeHtml(locationName)}"
+            placeholder="输入地址搜索，或在地图选点"
+            oninput="onSearchInput('${participant.id}')"
+            onkeydown="if(event.key==='Enter') searchLocation('${participant.id}')" />
+          <button class="btn-small btn-secondary" onclick="searchLocation('${participant.id}')">搜索</button>
+        </div>
+        <div class="search-dropdown" id="dropdown-${participant.id}"></div>
+      </div>
+      <div class="location-item" id="loc-${participant.id}" onclick="startMapClick('${participant.id}')">
+        <div class="badge" style="background:${participant.color}">${index + 1}</div>
+        <div class="loc-info">
+          <div class="loc-name">${escapeHtml(participant.location?.name || '未选择')}</div>
+          <div class="loc-coords" style="display:${participant.location ? 'block' : 'none'}">${participant.location ? `${participant.location.lng.toFixed(5)}, ${participant.location.lat.toFixed(5)}` : ''}</div>
+        </div>
+        ${participant.location
+          ? `<button class="clear-btn" onclick="event.stopPropagation();clearLocation('${participant.id}')">清除</button>`
+          : '<span class="loc-hint">点击地图选择</span>'}
+      </div>
+      <div class="participant-pref-label">出行方式</div>
+      <div class="transport-pref">
+        ${[['auto','⚡ 最快'],['transit','🚇 地铁'],['cycling','🚲 骑行'],['driving','🚗 驾车'],['walking','🚶 步行']]
+          .map(([mode, label]) => `<button class="pref-btn ${participant.preference === mode ? 'active' : ''}" data-mode="${mode}" onclick="setParticipantPreference('${participant.id}', this)">${label}</button>`).join('')}
+      </div>`;
+    list.appendChild(card);
+  });
+  document.getElementById('addParticipantBtn').disabled = participants.length >= 8;
+  checkSubmitReady();
+}
+
+function addParticipant() {
+  if (participants.length >= 8) return;
+  participantSequence += 1;
+  participants.push({
+    id: `p${participantSequence}`,
+    name: `参与者 ${participantSequence}`,
+    location: null,
+    preference: 'auto',
+    color: PARTICIPANT_COLORS.find(color => !participants.some(participant => participant.color === color)),
+  });
+  renderParticipants();
+}
+
+function removeParticipant(id) {
+  if (participants.length <= 2) return;
+  const marker = participantMarkers[id];
+  if (marker && map) map.remove(marker);
+  delete participantMarkers[id];
+  participants = participants.filter(participant => participant.id !== id);
+  if (mapClickMode === id) clearMapMode();
+  renderParticipants();
+}
+
+function updateParticipantName(id, name) {
+  const participant = getParticipant(id);
+  if (participant) participant.name = name.trim() || id;
+}
+
+function setParticipantPreference(id, button) {
+  const participant = getParticipant(id);
+  if (!participant) return;
+  participant.preference = button.dataset.mode;
+  button.closest('.transport-pref').querySelectorAll('.pref-btn').forEach(item => {
+    item.classList.toggle('active', item === button);
+  });
+}
+
+function participantPayload() {
+  return participants.map(({ id, name, location, preference }) => ({ id, name, location, preference }));
+}
 
 // 加载状态模拟
 let loadingTimer = null;
@@ -1094,6 +1113,7 @@ const STEP_INTERVALS = [0, 3000, 7000, 12000, 17000];
 // 初始化
 // ─────────────────────────────────────────────
 async function init() {
+  renderParticipants();
   // 获取后端配置
   try {
     const resp = await fetch('/api/config');
@@ -1103,7 +1123,7 @@ async function init() {
     if (!cfg.has_amap_key) {
       badge.textContent = '⚠️ 高德Key未配置';
       badge.className = 'api-badge warn';
-      showToast('请在 .env 中配置 AMAP_KEY 后重启服务', 'error', 8000);
+      showToast('请在 .env 中配置 AMAP_JS_KEY 后重启服务', 'error', 8000);
       loadFallbackMap();
       return;
     }
@@ -1152,154 +1172,103 @@ function initMap() {
 
   map.on('click', onMapClick);
 
-  // 搜索框自动完成
-  setupAutoComplete('searchA', 'A');
-  setupAutoComplete('searchB', 'B');
 }
 
-function setupAutoComplete(inputId, which) {
-  if (typeof AMap === 'undefined') return;
-  const ac = new AMap.AutoComplete({ input: inputId });
-  ac.on('select', (e) => {
-    const poi = e.poi;
-    if (poi && poi.location) {
-      setLocation(which, poi.location.lng, poi.location.lat, poi.name);
-    }
-  });
-}
 
 // ─────────────────────────────────────────────
 // 地图点击模式
 // ─────────────────────────────────────────────
-function startMapClick(which) {
-  mapClickMode = which;
-  const tip = document.getElementById('mapTip');
-  const dot = document.getElementById('tipDot');
-  const text = document.getElementById('tipText');
-  const modeBar = document.getElementById('modeBar');
-
-  tip.classList.add('show');
-  dot.style.background = which === 'A' ? '#4FC3F7' : '#FF8A65';
-  text.textContent = `点击地图，设置地点 ${which}`;
-  modeBar.style.display = 'flex';
-
-  document.getElementById(`mode${which}`).classList.add('active');
-  document.getElementById(`mode${which === 'A' ? 'B' : 'A'}`).classList.remove('active');
-
-  // 高亮对应的location item
-  document.getElementById(`locA`).classList.toggle('active', which === 'A');
-  document.getElementById(`locB`).classList.toggle('active', which === 'B');
-
-  if (map) map.setDefaultCursor('crosshair');
+function startMapClick(participantId) {
+  const participant = getParticipant(participantId);
+  if (!participant || !map) return;
+  mapClickMode = participantId;
+  document.getElementById('mapTip').classList.add('show');
+  document.getElementById('tipDot').style.background = participant.color;
+  document.getElementById('tipText').textContent = `点击地图，设置${participant.name}的地点`;
+  document.getElementById('mapModeLabel').textContent = `正在设置：${participant.name}`;
+  document.getElementById('modeBar').style.display = 'flex';
+  document.querySelectorAll('.location-item').forEach(item => item.classList.remove('active'));
+  document.getElementById(`loc-${participantId}`)?.classList.add('active');
+  map.setDefaultCursor('crosshair');
 }
 
 function clearMapMode() {
   mapClickMode = null;
   document.getElementById('mapTip').classList.remove('show');
   document.getElementById('modeBar').style.display = 'none';
-  document.getElementById('locA').classList.remove('active');
-  document.getElementById('locB').classList.remove('active');
+  document.querySelectorAll('.location-item').forEach(item => item.classList.remove('active'));
   if (map) map.setDefaultCursor('');
 }
 
-function onMapClick(e) {
+function onMapClick(event) {
   if (!mapClickMode) return;
-  const lng = e.lnglat.getLng();
-  const lat = e.lnglat.getLat();
-  const which = mapClickMode;
+  const participantId = mapClickMode;
+  const lng = event.lnglat.getLng();
+  const lat = event.lnglat.getLat();
   clearMapMode();
-
-  // 逆地理编码获取地址
-  fetch('/api/geocode', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address: `${lng},${lat}`, isLngLat: true })
-  }).catch(() => null);
-
-  // 直接用坐标设置（名字后端会尝试逆编码）
   const geocoder = new AMap.Geocoder({ radius: 500 });
   geocoder.getAddress(new AMap.LngLat(lng, lat), (status, result) => {
     let name = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     if (status === 'complete' && result.regeocode) {
       name = result.regeocode.formattedAddress || name;
     }
-    setLocation(which, lng, lat, name);
+    setLocation(participantId, lng, lat, name);
   });
 }
 
 // ─────────────────────────────────────────────
 // 搜索下拉（输入时实时显示候选）
 // ─────────────────────────────────────────────
-function onSearchInput(which) {
+function onSearchInput(participantId) {
   clearTimeout(searchDebounceTimer);
-  const input = document.getElementById(`search${which}`).value.trim();
-  const dropdown = document.getElementById(`dropdown${which}`);
-  if (!input || !map) { dropdown.classList.remove('show'); return; }
-
-  // 防抖300ms，走后端 /api/geocode-suggest（基于高德 Web 服务 Key，稳定可靠）
-  searchDebounceTimer = setTimeout(() => doSearchSuggest(which, input), 300);
+  const input = document.getElementById(`search-${participantId}`).value.trim();
+  const dropdown = document.getElementById(`dropdown-${participantId}`);
+  const participant = getParticipant(participantId);
+  if (participant?.location && input !== participant.location.name) {
+    participant.location = null;
+    if (participantMarkers[participantId] && map) map.remove(participantMarkers[participantId]);
+    delete participantMarkers[participantId];
+    checkSubmitReady();
+  }
+  if (!input) { dropdown.classList.remove('show'); return; }
+  searchDebounceTimer = setTimeout(() => doSearchSuggest(participantId, input), 300);
 }
 
-async function doSearchSuggest(which, input) {
-  const dropdown = document.getElementById(`dropdown${which}`);
+async function doSearchSuggest(participantId, input) {
+  const dropdown = document.getElementById(`dropdown-${participantId}`);
   try {
-    const resp = await fetch('/api/geocode-suggest', {
+    const response = await fetch('/api/geocode-suggest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keyword: input }),
     });
-    const data = await resp.json();
-    const tips = data.tips || [];
+    const data = await response.json();
     dropdown.innerHTML = '';
-
-    if (tips.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'dropdown-empty';
-      empty.textContent = '未找到相关地点';
-      dropdown.appendChild(empty);
+    const tips = data.tips || [];
+    if (!tips.length) {
+      dropdown.innerHTML = '<div class="dropdown-empty">未找到相关地点</div>';
       dropdown.classList.add('show');
       return;
     }
-
-    tips.forEach(t => {
+    tips.forEach(tip => {
       const item = document.createElement('div');
       item.className = 'dropdown-item';
-      // 用 dataset 存数据，完全避免字符串拼接导致的引号冲突
-      item.dataset.lng  = t.lng;
-      item.dataset.lat  = t.lat;
-      item.dataset.name = t.name;
-      item.innerHTML = `
-        <div class="di-name">${t.name}</div>
-        <div class="di-addr">${t.district || ''}${t.address || ''}</div>
-      `;
-      item.addEventListener('mousedown', (e) => {
-        // 用 mousedown 而非 click，在 document click 关闭下拉之前先触发
-        e.preventDefault();
-        e.stopPropagation();
-        selectDropdown(which, parseFloat(item.dataset.lng), parseFloat(item.dataset.lat), item.dataset.name);
+      item.innerHTML = `<div class="di-name">${escapeHtml(tip.name)}</div><div class="di-addr">${escapeHtml((tip.district || '') + (tip.address || ''))}</div>`;
+      item.addEventListener('mousedown', event => {
+        event.preventDefault();
+        setLocation(participantId, tip.lng, tip.lat, tip.name);
       });
       dropdown.appendChild(item);
     });
-
     dropdown.classList.add('show');
-  } catch(e) {
+  } catch (error) {
     dropdown.classList.remove('show');
   }
 }
 
-function selectDropdown(which, lng, lat, name) {
-  document.getElementById(`dropdown${which}`).classList.remove('show');
-  document.getElementById(`search${which}`).value = name;
-  setLocation(which, lng, lat, name);
-}
-
-async function searchLocation(which) {
-  const input = document.getElementById(`search${which}`).value.trim();
-  if (!input) return;
-
-  // 关闭下拉，复用 suggest 接口
-  document.getElementById(`dropdown${which}`).classList.remove('show');
-  await doSearchSuggest(which, input);
+async function searchLocation(participantId) {
+  const input = document.getElementById(`search-${participantId}`).value.trim();
+  if (input) await doSearchSuggest(participantId, input);
 }
 
 // 点击其他地方关闭下拉
@@ -1313,32 +1282,6 @@ document.addEventListener('click', (e) => {
 // 出行方式 & 出发时间
 // ─────────────────────────────────────────────
 
-/**
- * 设置某一方（A/B）的出行偏好
- * groupId: 可选，指定哪个 <div class="transport-pref"> 的id
- *          不传则同步更新所有对应 A/B 的按钮组（主表单 + 重算面板）
- */
-function setPrefAB(which, btn, groupId) {
-  const mode = btn.dataset.mode;
-  if (which === 'A') preferA = mode;
-  else preferB = mode;
-
-  // 找到所有需要同步的按钮组
-  const groupsA = ['prefA', 'recalcPrefA'];
-  const groupsB = ['prefB', 'recalcPrefB'];
-  const groups = which === 'A' ? groupsA : groupsB;
-
-  groups.forEach(gid => {
-    const container = document.getElementById(gid);
-    if (!container) return;
-    container.querySelectorAll('.pref-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.mode === mode);
-    });
-  });
-}
-
-// 兼容旧 setPref 调用（不破坏已有逻辑）
-function setPref(btn) { setPrefAB('A', btn); setPrefAB('B', btn); }
 
 function onTimeChange(input) {
   departureTime = input.value || null;
@@ -1366,39 +1309,28 @@ function clearTime() {
 // ─────────────────────────────────────────────
 async function recalcRoutes() {
   if (!currentSessionId) { showToast('请先执行搜索', 'error'); return; }
-
-  const btn = document.getElementById('recalcBtn');
-  btn.disabled = true;
-  document.getElementById('recalcBtnIcon').textContent = '';
+  const button = document.getElementById('recalcBtn');
+  button.disabled = true;
   document.getElementById('recalcBtnText').textContent = '计算中...';
-
   try {
-    const resp = await fetch('/api/v2/routes', {
+    const response = await fetch('/api/v2/routes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         session_id: currentSessionId,
-        prefer_a: preferA,
-        prefer_b: preferB,
+        participants: participantPayload(),
         departure_time: departureTime,
       }),
     });
-    const result = await resp.json();
-
-    if (result.success) {
-      // 保留上次的 summary 文字，仅更新路线数据
-      const prevSummary = document.getElementById('summaryText').textContent;
-      renderResults({ pois: result.pois, restaurants: result.pois,
-                      midpoint: result.midpoint, summary: prevSummary });
-      showToast('路线已重新计算', 'info', 2500);
-    } else {
-      showToast(result.error || '重算失败', 'error');
-    }
-  } catch (e) {
-    showToast('网络错误: ' + e.message, 'error');
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || '重算失败');
+    const previousSummary = document.getElementById('summaryText').textContent;
+    renderResults({ pois: result.pois, midpoint: result.midpoint, summary: previousSummary });
+    showToast('路线已重新计算', 'info', 2500);
+  } catch (error) {
+    showToast(error.message || '重算失败', 'error');
   } finally {
-    btn.disabled = false;
-    document.getElementById('recalcBtnIcon').textContent = '🔄';
+    button.disabled = false;
     document.getElementById('recalcBtnText').textContent = '重新计算路线';
   }
 }
@@ -1406,122 +1338,50 @@ async function recalcRoutes() {
 // ─────────────────────────────────────────────
 // 设置地点
 // ─────────────────────────────────────────────
-function setLocation(which, lng, lat, name) {
-  locationData[which] = { lng, lat, name };
-
-  const nameEl = document.getElementById(`loc${which}Name`);
-  const coordEl = document.getElementById(`loc${which}Coords`);
-  const hintEl = document.getElementById(`loc${which}Hint`);
-  const itemEl = document.getElementById(`loc${which}`);
-
-  nameEl.textContent = name;
-  coordEl.textContent = `${lng.toFixed(5)}, ${lat.toFixed(5)}`;
-  coordEl.style.display = 'block';
-  hintEl.style.display = 'none';
-
-  // 添加清除按钮
-  let clearBtn = itemEl.querySelector('.clear-btn');
-  if (!clearBtn) {
-    clearBtn = document.createElement('button');
-    clearBtn.className = 'clear-btn';
-    clearBtn.textContent = '清除';
-    clearBtn.onclick = (e) => { e.stopPropagation(); clearLocation(which); };
-    itemEl.appendChild(clearBtn);
-  }
-
-  // 更新地图标记
-  updateMapMarker(which, lng, lat, name);
-
-  // 地图居中（两点都设置后）
-  if (locationData.A && locationData.B) {
-    map.setFitView([markerA, markerB]);
-    checkSubmitReady();
-  } else {
-    map.setCenter([lng, lat]);
-  }
-
-  checkSubmitReady();
+function setLocation(participantId, lng, lat, name) {
+  const participant = getParticipant(participantId);
+  if (!participant) return;
+  participant.location = { lng: Number(lng), lat: Number(lat), name };
+  updateMapMarker(participant);
+  renderParticipants();
+  const markers = Object.values(participantMarkers).filter(Boolean);
+  if (map && markers.length > 1) map.setFitView(markers);
+  else if (map) map.setCenter([lng, lat]);
 }
 
-function clearLocation(which) {
-  locationData[which] = null;
-  const nameEl = document.getElementById(`loc${which}Name`);
-  const coordEl = document.getElementById(`loc${which}Coords`);
-  const hintEl = document.getElementById(`loc${which}Hint`);
-  const itemEl = document.getElementById(`loc${which}`);
-
-  nameEl.textContent = '未选择';
-  coordEl.style.display = 'none';
-  hintEl.style.display = '';
-
-  const clearBtn = itemEl.querySelector('.clear-btn');
-  if (clearBtn) clearBtn.remove();
-
-  const marker = which === 'A' ? markerA : markerB;
-  if (marker) { map.remove(marker); }
-  if (which === 'A') markerA = null;
-  else markerB = null;
-
-  checkSubmitReady();
+function clearLocation(participantId) {
+  const participant = getParticipant(participantId);
+  if (!participant) return;
+  participant.location = null;
+  if (participantMarkers[participantId] && map) map.remove(participantMarkers[participantId]);
+  delete participantMarkers[participantId];
+  renderParticipants();
 }
 
-function updateMapMarker(which, lng, lat, name) {
-  const colors = { A: '#4FC3F7', B: '#FF8A65' };
-  const color = colors[which];
-
-  const iconHtml = `
-    <div style="
-      width:32px;height:32px;
-      background:${color};
-      border-radius:50% 50% 50% 0;
-      transform:rotate(-45deg);
-      border:3px solid white;
-      box-shadow:0 2px 8px rgba(0,0,0,0.4);
-      display:flex;align-items:center;justify-content:center;
-    ">
-      <span style="transform:rotate(45deg);font-size:12px;font-weight:700;color:#fff;">${which}</span>
-    </div>
-  `;
-
+function updateMapMarker(participant) {
+  if (!map || !participant.location) return;
+  const index = participants.indexOf(participant);
+  const { lng, lat, name } = participant.location;
+  const iconHtml = `<div style="width:32px;height:32px;background:${participant.color};border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;"><span style="transform:rotate(45deg);font-size:12px;font-weight:700;color:#fff;">${index + 1}</span></div>`;
   const marker = new AMap.Marker({
-    position: [lng, lat],
-    content: iconHtml,
-    offset: new AMap.Pixel(-16, -32),
-    title: name
+    position: [lng, lat], content: iconHtml,
+    offset: new AMap.Pixel(-16, -32), title: name,
   });
-
   marker.on('click', () => {
-    infoWindow.setContent(`
-      <div style="background:#1A1D26;border:1px solid #2E3350;border-radius:8px;padding:10px 14px;color:#E8EAF0;min-width:160px;">
-        <div style="font-size:11px;color:${color};font-weight:700;margin-bottom:4px;">地点 ${which}</div>
-        <div style="font-size:13px;font-weight:600;">${name}</div>
-      </div>
-    `);
+    infoWindow.setContent(`<div style="background:#1A1D26;border:1px solid #2E3350;border-radius:8px;padding:10px 14px;color:#E8EAF0;min-width:160px;"><div style="font-size:11px;color:${participant.color};font-weight:700;margin-bottom:4px;">${escapeHtml(participant.name)}</div><div style="font-size:13px;font-weight:600;">${escapeHtml(name)}</div></div>`);
     infoWindow.open(map, marker.getPosition());
   });
-
-  const existingMarker = which === 'A' ? markerA : markerB;
-  if (existingMarker) map.remove(existingMarker);
-
+  if (participantMarkers[participant.id]) map.remove(participantMarkers[participant.id]);
+  participantMarkers[participant.id] = marker;
   map.add(marker);
-  if (which === 'A') markerA = marker;
-  else markerB = marker;
 }
 
-// ─────────────────────────────────────────────
-// 例子填充
-// ─────────────────────────────────────────────
 function setExample(text) {
   document.getElementById('queryInput').value = text;
 }
 
-// ─────────────────────────────────────────────
-// 检查提交按钮状态
-// ─────────────────────────────────────────────
 function checkSubmitReady() {
-  const ready = locationData.A && locationData.B;
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = !ready;
+  document.getElementById('submitBtn').disabled = !participants.every(participant => participant.location);
 }
 
 // ─────────────────────────────────────────────
@@ -1571,8 +1431,8 @@ function stopLoading() {
 // ─────────────────────────────────────────────
 async function doSearch() {
   const query = document.getElementById('queryInput').value.trim();
-  if (!locationData.A || !locationData.B) {
-    showToast('请先选择两个地点', 'error');
+  if (!participants.every(participant => participant.location)) {
+    showToast('请先为所有参与者选择地点', 'error');
     return;
   }
   if (!query) {
@@ -1580,62 +1440,46 @@ async function doSearch() {
     return;
   }
 
-  currentSessionId = null;  // 重置session
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true;
-  document.getElementById('submitIcon').textContent = '';
+  currentSessionId = null;
+  const button = document.getElementById('submitBtn');
+  button.disabled = true;
   document.getElementById('submitText').textContent = 'AI分析中...';
   startLoading();
-  const city = guessCityFromLocations();
-
   try {
-    // 使用 v2 API
-    const resp = await fetch('/api/v2/search', {
+    const response = await fetch('/api/v2/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        location_a: locationData.A,
-        location_b: locationData.B,
-        query: query,
-        city: city,
-        prefer_a: preferA,
-        prefer_b: preferB,
+        participants: participantPayload(),
+        query,
+        city: guessCityFromLocations(),
         departure_time: departureTime,
       }),
     });
-
-    const result = await resp.json();
+    const result = await response.json();
     stopLoading();
-
-    if (result.success) {
-      currentSessionId = result.session_id || null;
-      // v2 返回格式：result.pois
-      const data = {
-        pois: result.pois || [],
-        restaurants: result.pois || [],
-        midpoint: result.midpoint || {},
-        summary: result.summary || '',
-        search_radius_m: result.search_radius_m || 3000,
-      };
-      renderResults(data);
-      showToast(`发现 ${data.pois.length} 个推荐地点`, 'info', 3000);
-    } else {
-      showToast(result.error || '分析失败，请重试', 'error', 6000);
-    }
-  } catch (e) {
+    if (!result.success) throw new Error(result.error || '分析失败，请重试');
+    currentSessionId = result.session_id || null;
+    renderResults({
+      pois: result.pois || [],
+      midpoint: result.midpoint || {},
+      summary: result.summary || '',
+      search_radius_m: result.search_radius_m || 3000,
+    });
+    showToast(`发现 ${result.pois.length} 个推荐地点`, 'info', 3000);
+  } catch (error) {
     stopLoading();
-    showToast('网络请求失败：' + e.message, 'error', 6000);
+    showToast(error.message || '网络请求失败', 'error', 6000);
   } finally {
-    btn.disabled = false;
-    document.getElementById('submitIcon').textContent = '🔍';
+    button.disabled = false;
     document.getElementById('submitText').textContent = '开始智能推荐';
+    checkSubmitReady();
   }
 }
 
 function guessCityFromLocations() {
-  // 粗略根据经纬度判断城市
-  const lng = locationData.A?.lng || 116;
-  const lat = locationData.A?.lat || 39;
+  const first = participants.find(participant => participant.location)?.location || { lng: 116, lat: 39 };
+  const { lng, lat } = first;
   if (lat > 39 && lat < 41 && lng > 115 && lng < 118) return '北京';
   if (lat > 30 && lat < 32 && lng > 120 && lng < 122) return '上海';
   if (lat > 22 && lat < 24 && lng > 113 && lng < 115) return '广州';
@@ -1681,7 +1525,7 @@ function renderResults(data) {
 
   // 重置数量选择器为默认值
   const sel = document.getElementById('displayCountSelect');
-  if (sel) sel.value = '20';
+  if (sel) sel.value = allPoisData.length > 10 ? '12' : (allPoisData.length > 5 ? '10' : '5');
 
   if (allPoisData.length === 0) {
     document.getElementById('restaurantList').innerHTML = `
@@ -1713,7 +1557,7 @@ function renderResults(data) {
   }
 
   // 渲染卡片 + 地图标记（受数量选择器控制）
-  renderPoisByCount(parseInt(document.getElementById('displayCountSelect')?.value || '20'));
+  renderPoisByCount(parseInt(document.getElementById('displayCountSelect')?.value || '12'));
 }
 
 /** 格式化单侧交通信息，失败时显示友好错误文字 */
@@ -1733,97 +1577,68 @@ function formatTransport(trans) {
 function renderPoisByCount(displayN) {
   const list = document.getElementById('restaurantList');
   const modeIcon = { transit: '🚇', driving: '🚗', walking: '🚶', cycling: '🚲', auto: '⚡' };
-
-  // 清除旧标记（但保留 midpoint marker）
-  restaurantMarkers.forEach(m => map && map.remove(m));
+  restaurantMarkers.forEach(marker => map && map.remove(marker));
   restaurantMarkers = [];
   currentHighlightIdx = -1;
-
-  const visiblePois = allPoisData.slice(0, displayN);
-
   list.innerHTML = '';
-  visiblePois.forEach((r, idx) => {
-    const rankClass = idx < 3 ? `rank-${idx + 1}` : '';
-    const ratingStars = r.rating > 0
-      ? '★'.repeat(Math.round(r.rating)) + '☆'.repeat(5 - Math.round(r.rating))
+
+  allPoisData.slice(0, displayN).forEach((poi, index) => {
+    const rankClass = index < 3 ? `rank-${index + 1}` : '';
+    const ratingText = poi.rating > 0 ? poi.rating.toFixed(1) : '-';
+    const ratingStars = poi.rating > 0
+      ? '★'.repeat(Math.round(poi.rating)) + '☆'.repeat(5 - Math.round(poi.rating))
       : '暂无评分';
-    const ratingText = r.rating > 0 ? r.rating.toFixed(1) : '-';
-    const transA = r.transport_from_a || {};
-    const transB = r.transport_from_b || {};
-    const fmtA = formatTransport(transA);
-    const fmtB = formatTransport(transB);
+    const routeRows = (poi.routes || []).map(route => {
+      const participant = getParticipant(route.participant_id);
+      const formatted = formatTransport(route);
+      return `<div class="route-row" style="--participant-color:${participant?.color || '#78909C'}">
+        <div class="route-person">${escapeHtml(route.participant_name)} · ${modeIcon[route.mode] || '🚇'}</div>
+        <div class="route-summary">${formatted.timeHtml}<span class="route-detail">${escapeHtml(formatted.detail)}</span></div>
+      </div>`;
+    }).join('');
 
     const card = document.createElement('div');
     card.className = 'restaurant-card';
-    card.id = `rcard-${idx}`;
+    card.id = `rcard-${index}`;
     card.innerHTML = `
       <div class="restaurant-top">
-        <div class="restaurant-name">${r.name}</div>
-        <div class="restaurant-rank ${rankClass}">${idx + 1}</div>
+        <div class="restaurant-name">${escapeHtml(poi.name)}</div>
+        <div class="restaurant-rank ${rankClass}">${index + 1}</div>
       </div>
       <div class="restaurant-meta">
-        <div class="meta-tag">
-          <span class="rating-stars">${ratingStars}</span>
-          <span class="rating-num">${ratingText}</span>
-        </div>
-        ${r.cost_per_person ? `<div class="meta-tag"><span class="icon">💰</span>人均${r.cost_per_person}元</div>` : ''}
-        ${r.tel ? `<div class="meta-tag"><span class="icon">📞</span>${r.tel}</div>` : ''}
+        <div class="meta-tag"><span class="rating-stars">${ratingStars}</span><span class="rating-num">${ratingText}</span></div>
+        ${poi.cost_per_person ? `<div class="meta-tag"><span class="icon">💰</span>人均${escapeHtml(poi.cost_per_person)}元</div>` : ''}
       </div>
-      <div class="restaurant-address">📍 ${r.address || '地址未知'}</div>
-      <div class="transport-grid">
-        <div class="transport-item transport-a">
-          <div class="transport-label">从 A 出发</div>
-          <div class="transport-time">
-            <span class="transport-mode-icon">${modeIcon[transA.mode] || '🚇'}</span>
-            ${fmtA.timeHtml}
-          </div>
-          <div class="transport-detail">${fmtA.detail}</div>
-        </div>
-        <div class="transport-item transport-b">
-          <div class="transport-label">从 B 出发</div>
-          <div class="transport-time">
-            <span class="transport-mode-icon">${modeIcon[transB.mode] || '🚇'}</span>
-            ${fmtB.timeHtml}
-          </div>
-          <div class="transport-detail">${fmtB.detail}</div>
-        </div>
+      <div class="restaurant-address">📍 ${escapeHtml(poi.address || '地址未知')}</div>
+      <div class="fairness-metrics">
+        <span class="meta-tag">全员 ${poi.total_time_minutes} 分钟</span>
+        <span class="meta-tag">最快 ${poi.min_time_minutes} 分钟</span>
+        <span class="meta-tag">最慢 ${poi.max_time_minutes} 分钟</span>
+        <span class="meta-tag">极差 ${poi.time_range_minutes} 分钟</span>
       </div>
+      <div class="route-list">${routeRows}</div>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-        <button class="btn-small btn-secondary nearby-btn"
-          style="width:100%;font-size:12px;padding:6px;"
-          data-idx="${idx}">
-          🔍 搜索此地点附近
-        </button>
-      </div>
-    `;
-
-    // 附近搜索按钮：阻止冒泡，不触发卡片高亮
-    const nearbyBtn = card.querySelector('.nearby-btn');
-    nearbyBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openNearbyPopup(r, nearbyBtn);
+        <button class="btn-small btn-secondary nearby-btn" style="width:100%;font-size:12px;padding:6px;">🔍 搜索此地点附近</button>
+      </div>`;
+    card.querySelector('.nearby-btn').addEventListener('click', event => {
+      event.stopPropagation();
+      openNearbyPopup(poi, event.currentTarget);
     });
-
-    card.onclick = () => highlightRestaurant(idx, r);
+    card.onclick = () => highlightRestaurant(index, poi);
     list.appendChild(card);
-
-    // 地图标记（默认半透明暗色）
-    if (r.lng && r.lat) {
-      addRestaurantMarker(idx, r, modeIcon);
-    }
+    if (poi.lng && poi.lat) addRestaurantMarker(index, poi, modeIcon);
   });
 
-  // 地图缩放到所有标记
   setTimeout(() => {
-    const allMarkers = [markerA, markerB, markerMid, ...restaurantMarkers].filter(Boolean);
-    if (allMarkers.length > 0) map.setFitView(allMarkers, false, [50, 50, 50, 50]);
+    const allMarkers = [...Object.values(participantMarkers), markerMid, ...restaurantMarkers].filter(Boolean);
+    if (allMarkers.length && map) map.setFitView(allMarkers, false, [50, 50, 50, 50]);
   }, 300);
 }
 
 /** 数量选择器变更时触发 */
 function onDisplayCountChange() {
   const sel = document.getElementById('displayCountSelect');
-  const n = parseInt(sel.value || '20');
+  const n = parseInt(sel.value || '12');
   renderPoisByCount(n);
 }
 
@@ -1866,41 +1681,20 @@ function markerIconHtml(idx, rating, dim) {
 function addRestaurantMarker(idx, r, modeIcon) {
   const marker = new AMap.Marker({
     position: [r.lng, r.lat],
-    content: markerIconHtml(idx, r.rating, true),  // 默认半透明
+    content: markerIconHtml(idx, r.rating, true),
     offset: new AMap.Pixel(-20, -16),
     title: r.name,
-    zIndex: 80
+    zIndex: 80,
   });
-
-  const transA = r.transport_from_a || {};
-  const transB = r.transport_from_b || {};
-
-  const ifmtA = formatTransport(transA);
-  const ifmtB = formatTransport(transB);
   marker.on('click', () => {
-    infoWindow.setContent(`
-      <div style="background:#1A1D26;border:1px solid #2E3350;border-radius:10px;padding:14px;color:#E8EAF0;min-width:220px;max-width:280px;">
-        <div style="font-size:15px;font-weight:700;margin-bottom:8px;">${r.name}</div>
-        <div style="font-size:12px;color:#8B91A8;margin-bottom:8px;">📍 ${r.address || ''}</div>
-        ${r.rating > 0 ? `<div style="margin-bottom:10px;"><span style="color:#FFB800;">★</span> <span style="font-weight:600;">${r.rating.toFixed(1)}</span> 分</div>` : ''}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div style="background:rgba(79,195,247,0.1);border:1px solid rgba(79,195,247,0.2);border-radius:6px;padding:8px;">
-            <div style="font-size:11px;color:#4FC3F7;font-weight:600;margin-bottom:4px;">从A出发</div>
-            <div style="font-weight:700;font-size:13px;">${ifmtA.timeHtml}</div>
-            <div style="font-size:11px;color:#8B91A8;">${ifmtA.detail}</div>
-          </div>
-          <div style="background:rgba(255,138,101,0.1);border:1px solid rgba(255,138,101,0.2);border-radius:6px;padding:8px;">
-            <div style="font-size:11px;color:#FF8A65;font-weight:600;margin-bottom:4px;">从B出发</div>
-            <div style="font-weight:700;font-size:13px;">${ifmtB.timeHtml}</div>
-            <div style="font-size:11px;color:#8B91A8;">${ifmtB.detail}</div>
-          </div>
-        </div>
-      </div>
-    `);
+    const routeRows = (r.routes || []).map(route => {
+      const formatted = formatTransport(route);
+      return `<div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:12px;"><span>${escapeHtml(route.participant_name)} ${modeIcon[route.mode] || '🚇'}</span><span>${formatted.timeHtml}</span></div>`;
+    }).join('');
+    infoWindow.setContent(`<div style="background:#1A1D26;border:1px solid #2E3350;border-radius:8px;padding:14px;color:#E8EAF0;min-width:240px;max-width:320px;"><div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escapeHtml(r.name)}</div><div style="font-size:12px;color:#8B91A8;">📍 ${escapeHtml(r.address || '')}</div>${routeRows}</div>`);
     infoWindow.open(map, marker.getPosition());
     highlightRestaurant(idx, r);
   });
-
   map.add(marker);
   restaurantMarkers.push(marker);
 }

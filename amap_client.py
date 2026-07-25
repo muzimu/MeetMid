@@ -8,6 +8,8 @@
 import math
 import datetime
 import os
+import threading
+import time
 import requests
 from dotenv import load_dotenv
 
@@ -22,11 +24,28 @@ AMAP_JS_KEY: str      = os.getenv("AMAP_JS_KEY", AMAP_KEY)
 # 地理编码
 # ─────────────────────────────────────────────
 
+_AMAP_REQUEST_LOCK = threading.Lock()
+_AMAP_LAST_REQUEST_AT = 0.0
+_AMAP_MIN_INTERVAL = 0.36
+
+
+def _amap_get(url: str, **kwargs):
+    """串行化高德请求，避免多用户和多参与者场景超过 QPS。"""
+    global _AMAP_LAST_REQUEST_AT
+    with _AMAP_REQUEST_LOCK:
+        wait = _AMAP_MIN_INTERVAL - (time.monotonic() - _AMAP_LAST_REQUEST_AT)
+        if wait > 0:
+            time.sleep(wait)
+        response = requests.get(url, **kwargs)
+        _AMAP_LAST_REQUEST_AT = time.monotonic()
+        return response
+
+
 def amap_geocode(address: str) -> dict:
     """地址 → 经纬度坐标"""
     url = "https://restapi.amap.com/v3/geocode/geo"
     params = {"key": AMAP_KEY, "address": address, "output": "json"}
-    resp = requests.get(url, params=params, timeout=10)
+    resp = _amap_get(url, params=params, timeout=10)
     data = resp.json()
     if data.get("status") == "1" and data.get("geocodes"):
         geocode = data["geocodes"][0]
@@ -93,7 +112,7 @@ def amap_driving_route(
         "strategy": strategy,
         "output": "json",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = _amap_get(url, params=params, timeout=10)
     data = resp.json()
     if data.get("status") == "1" and data.get("route", {}).get("paths"):
         path = data["route"]["paths"][0]
@@ -130,7 +149,7 @@ def amap_transit_route(
         "time": time_str,
         "output": "json",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = _amap_get(url, params=params, timeout=10)
     data = resp.json()
     if data.get("status") == "1" and data.get("route", {}).get("transits"):
         transit = data["route"]["transits"][0]
@@ -183,7 +202,7 @@ def amap_walking_route(
         "destination": f"{dest_lng},{dest_lat}",
         "output": "json",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = _amap_get(url, params=params, timeout=10)
     data = resp.json()
     if data.get("status") == "1" and data.get("route", {}).get("paths"):
         path = data["route"]["paths"][0]
@@ -211,7 +230,7 @@ def amap_cycling_route(
         "origin": f"{origin_lng},{origin_lat}",
         "destination": f"{dest_lng},{dest_lat}",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = _amap_get(url, params=params, timeout=10)
     data = resp.json()
     if data.get("errcode") == 0:
         paths = data.get("data", {}).get("paths", [])
@@ -322,7 +341,7 @@ def amap_search_nearby(
         "page": 1,
         "extensions": "all",
     }
-    resp = requests.get(url, params=params, timeout=10)
+    resp = _amap_get(url, params=params, timeout=10)
     data = resp.json()
     if data.get("status") == "1":
         pois = []
@@ -376,4 +395,21 @@ def find_balanced_midpoint(
             f"建议以中点为圆心搜索半径 {radius_m}m 内的地点。"
             f"如果结果不理想可适当扩大半径。"
         ),
+    }
+
+
+def find_balanced_center(participants: list[dict]) -> dict:
+    """计算 2-8 个参与者的地理中心和建议搜索半径。"""
+    locations = [p["location"] for p in participants]
+    mid_lng = sum(p["lng"] for p in locations) / len(locations)
+    mid_lat = sum(p["lat"] for p in locations) / len(locations)
+    max_distance_km = max(
+        haversine_distance(p["lng"], p["lat"], mid_lng, mid_lat)
+        for p in locations
+    )
+    radius_m = int(max(500, min(8000, max_distance_km * 1000 * 0.7)))
+    return {
+        "midpoint": {"lng": mid_lng, "lat": mid_lat},
+        "max_distance_km": round(max_distance_km, 1),
+        "suggested_search_radius_m": radius_m,
     }
