@@ -134,60 +134,71 @@ def amap_transit_route(
     dest_lng: float, dest_lat: float,
     city: str = "北京",
     departure_time: str | None = None,
+    strategy: int = 0,
+    origin_poi: str | None = None,
+    destination_poi: str | None = None,
 ) -> dict:
-    """公交 / 地铁路线规划，支持指定出发时间"""
+    """V5 公交 / 地铁路线规划，支持 0-8 换乘策略。"""
+    city_codes = {
+        "北京": "110000", "上海": "310000", "广州": "440100",
+        "深圳": "440300", "杭州": "330100",
+    }
+    city_code = city_codes.get(city, city)
+    if strategy == 6 and (not origin_poi or not destination_poi):
+        return {"success": False, "error": "地铁图模式需要起终点 POI ID", "mode": "transit"}
+
     date_str, time_str = _parse_departure_time(departure_time)
-    url = "https://restapi.amap.com/v3/direction/transit/integrated"
+    url = "https://restapi.amap.com/v5/direction/transit/integrated"
     params = {
         "key": AMAP_KEY,
         "origin": f"{origin_lng},{origin_lat}",
         "destination": f"{dest_lng},{dest_lat}",
-        "city": city,
-        "strategy": 0,
+        "city1": city_code,
+        "city2": city_code,
+        "strategy": strategy,
+        "AlternativeRoute": 1,
         "nightflag": 0,
         "date": date_str,
         "time": time_str,
+        "show_fields": "cost,navi",
         "output": "json",
     }
-    resp = _amap_get(url, params=params, timeout=10)
-    data = resp.json()
-    if data.get("status") == "1" and data.get("route", {}).get("transits"):
-        transit = data["route"]["transits"][0]
-        duration_s = int(transit.get("duration", 0))
+    if strategy == 6:
+        params.update({"originpoi": origin_poi, "destinationpoi": destination_poi})
 
-        segments = transit.get("segments", [])
-        total_distance_m = 0
-        for seg in segments:
-            walking = seg.get("walking") or {}
-            total_distance_m += int(walking.get("distance", 0))
-            bus = seg.get("bus") or {}
-            for line in bus.get("buslines", []):
-                total_distance_m += int(line.get("distance", 0))
-
-        lines = []
-        for seg in segments:
-            walking = seg.get("walking") or {}
-            walk_s = int(walking.get("duration", 0))
-            bus = seg.get("bus") or {}
-            if walk_s >= 60:
-                lines.append(f"步行{round(walk_s / 60)}分钟")
-            for line in bus.get("buslines", []):
-                name = line.get("name", "")
-                if name:
-                    lines.append(name)
-
-        summary = " → ".join(lines) or "公共交通"
-        distance_m = total_distance_m or int(data["route"].get("distance", 0))
+    data = _amap_get(url, params=params, timeout=10).json()
+    transits = data.get("route", {}).get("transits", [])
+    if data.get("status") != "1" or not transits:
         return {
-            "success": True,
+            "success": False,
+            "error": data.get("info", "公交路线规划失败"),
             "mode": "transit",
-            "duration_minutes": round(duration_s / 60),
-            "distance_km": round(distance_m / 1000, 1),
-            "duration_text": f"{round(duration_s / 60)}分钟",
-            "distance_text": f"{round(distance_m / 1000, 1)}公里",
-            "line_summary": summary,
         }
-    return {"success": False, "error": "公交路线规划失败", "mode": "transit"}
+
+    transit = transits[0]
+    duration_s = int((transit.get("cost") or {}).get("duration", 0) or transit.get("duration", 0))
+    distance_m = int(transit.get("distance", 0) or 0)
+    lines = []
+    for segment in transit.get("segments", []):
+        walking = segment.get("walking") or {}
+        walk_s = int((walking.get("cost") or {}).get("duration", 0) or walking.get("duration", 0))
+        if walk_s >= 60:
+            lines.append(f"步行{round(walk_s / 60)}分钟")
+        for line in (segment.get("bus") or {}).get("buslines", []):
+            if line.get("name"):
+                lines.append(line["name"])
+
+    return {
+        "success": True,
+        "mode": "transit",
+        "strategy": strategy,
+        "duration_minutes": round(duration_s / 60),
+        "distance_km": round(distance_m / 1000, 1),
+        "duration_text": f"{round(duration_s / 60)}分钟",
+        "distance_text": f"{round(distance_m / 1000, 1)}公里",
+        "walking_distance_m": int(transit.get("walking_distance", 0) or 0),
+        "line_summary": " → ".join(lines) or "公共交通",
+    }
 
 
 def amap_walking_route(
@@ -269,51 +280,52 @@ def amap_get_best_route(
     city: str = "北京",
     prefer: str = "auto",
     departure_time: str | None = None,
+    transit_strategy: int = 0,
+    origin_poi: str | None = None,
+    destination_poi: str | None = None,
 ) -> dict:
-    """
-    自动对比多种交通方式，返回最快方案。
-    prefer: auto | transit | driving | walking | cycling
-    """
+    """按参与者偏好返回最快路线，公交模式支持 V5 换乘策略。"""
     dist_km = haversine_distance(origin_lng, origin_lat, dest_lng, dest_lat)
-
     if prefer == "driving":
         return amap_driving_route(origin_lng, origin_lat, dest_lng, dest_lat)
 
     results: dict[str, dict] = {}
-
     if dist_km < 2.5:
-        r = amap_walking_route(origin_lng, origin_lat, dest_lng, dest_lat)
-        if r.get("success"):
-            results["walking"] = r
+        route = amap_walking_route(origin_lng, origin_lat, dest_lng, dest_lat)
+        if route.get("success"):
+            results["walking"] = route
 
     if prefer in ("auto", "cycling") and dist_km < 8:
-        r = amap_cycling_route(origin_lng, origin_lat, dest_lng, dest_lat)
-        if r.get("success"):
-            results["cycling"] = r
+        route = amap_cycling_route(origin_lng, origin_lat, dest_lng, dest_lat)
+        if route.get("success"):
+            results["cycling"] = route
 
     if prefer in ("auto", "transit"):
-        r = amap_transit_route(origin_lng, origin_lat, dest_lng, dest_lat,
-                               city, departure_time)
-        if r.get("success"):
-            results["transit"] = r
+        route = amap_transit_route(
+            origin_lng, origin_lat, dest_lng, dest_lat,
+            city, departure_time, transit_strategy,
+            origin_poi, destination_poi,
+        )
+        if route.get("success"):
+            results["transit"] = route
 
     if prefer == "auto":
-        r = amap_driving_route(origin_lng, origin_lat, dest_lng, dest_lat)
-        if r.get("success"):
-            results["driving"] = r
+        route = amap_driving_route(origin_lng, origin_lat, dest_lng, dest_lat)
+        if route.get("success"):
+            results["driving"] = route
 
     if not results:
         return {"success": False, "error": "所有交通方式均查询失败", "mode": "unknown"}
 
-    best = min(results.values(), key=lambda x: x.get("duration_minutes", 9999))
+    best = min(results.values(), key=lambda item: item.get("duration_minutes", 9999))
     best["all_modes"] = {
         mode: {
-            "duration_minutes": r.get("duration_minutes"),
-            "duration_text": r.get("duration_text"),
-            "distance_text": r.get("distance_text"),
-            "line_summary": r.get("line_summary", ""),
+            "duration_minutes": route.get("duration_minutes"),
+            "duration_text": route.get("duration_text"),
+            "distance_text": route.get("distance_text"),
+            "line_summary": route.get("line_summary", ""),
         }
-        for mode, r in results.items()
+        for mode, route in results.items()
     }
     return best
 

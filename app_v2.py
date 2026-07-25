@@ -104,6 +104,7 @@ def _format_route(route: dict) -> dict:
     # 查询失败时保留 error 字段，duration_text 置为 None（前端据此显示友好提示）
     return {
         "mode":             route.get("mode", "unknown"),
+        "strategy":         route.get("strategy", 0),
         "success":          success,
         "error":            route.get("error") if not success else None,
         "duration_text":    route.get("duration_text") if success else None,
@@ -249,8 +250,15 @@ def _validate_participants(participants: list) -> list:
             raise ValueError(f"参与者 {index} 坐标无效") from None
         if not (-180 <= lng <= 180 and -90 <= lat <= 90):
             raise ValueError(f"参与者 {index} 坐标无效")
-        if participant.get("preference", "auto") not in allowed_preferences:
+        preference = participant.get("preference", "auto")
+        if preference not in allowed_preferences:
             raise ValueError(f"参与者 {index} 出行方式无效")
+        if preference == "transit":
+            strategy = participant.get("transit_strategy", 0)
+            if not isinstance(strategy, int) or not 0 <= strategy <= 8:
+                raise ValueError(f"参与者 {index} 公交换乘策略无效")
+            if strategy == 6 and not location.get("poi_id"):
+                raise ValueError(f"参与者 {index} 使用地铁图模式时必须从搜索候选中选择地点")
     return participants
 
 
@@ -280,12 +288,16 @@ def calculate_routes(
                 location["lng"], location["lat"],
                 poi["lng"], poi["lat"], city,
                 participant.get("preference", "auto"), departure_time,
+                participant.get("transit_strategy", 0),
+                location.get("poi_id"), poi.get("id"),
             )
             if not route.get("success", False):
                 route = amap_get_best_route(
                     location["lng"], location["lat"],
                     poi["lng"], poi["lat"], city,
                     participant.get("preference", "auto"), departure_time,
+                    participant.get("transit_strategy", 0),
+                    location.get("poi_id"), poi.get("id"),
                 )
             if not route.get("success", False):
                 routes = []
@@ -295,6 +307,7 @@ def calculate_routes(
                 "participant_id": participant["id"],
                 "participant_name": participant.get("name") or participant["id"],
                 "preference": participant.get("preference", "auto"),
+                "transit_strategy": participant.get("transit_strategy", 0),
             })
             routes.append(formatted)
 
@@ -668,6 +681,7 @@ def api_geocode_suggest():
                 lng_s, lat_s = location.split(",")
                 tips.append({
                     "name":     tip.get("name", ""),
+                    "poi_id":   tip.get("id", ""),
                     "district": tip.get("district", ""),
                     "address":  tip.get("address", "") if isinstance(tip.get("address"), str) else "",
                     "lng":      float(lng_s),

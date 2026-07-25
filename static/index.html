@@ -790,6 +790,8 @@
     .participant-remove { border:0;background:transparent;color:var(--text2);cursor:pointer;padding:4px 6px;font-size:16px; }
     .participant-remove:hover { color:var(--danger); }
     .participant-pref-label { color:var(--text2);font-size:11px;margin:9px 0 5px; }
+    .transit-strategy-select { width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none; }
+    .transit-strategy-select:focus { border-color:var(--primary); }
     .route-list { display:grid;gap:6px;margin-top:10px; }
     .route-row { display:grid;grid-template-columns:minmax(80px,1fr) auto;gap:8px;align-items:center;padding:7px 9px;background:var(--surface);border-left:3px solid var(--participant-color);border-radius:4px; }
     .route-person { min-width:0;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
@@ -997,10 +999,14 @@ let restaurantMarkers = [];
 let infoWindow = null;
 
 const PARTICIPANT_COLORS = ['#4FC3F7', '#FF8A65', '#66BB6A', '#AB47BC', '#FFCA28', '#26A69A', '#EC407A', '#78909C'];
+const TRANSIT_STRATEGIES = [
+  [0, '推荐模式'], [1, '最经济'], [2, '最少换乘'], [3, '最少步行'],
+  [4, '最舒适'], [5, '不乘地铁'], [6, '地铁图模式'], [7, '地铁优先'], [8, '时间短'],
+];
 let participantSequence = 2;
 let participants = [
-  { id: 'p1', name: '参与者 1', location: null, preference: 'auto', color: PARTICIPANT_COLORS[0] },
-  { id: 'p2', name: '参与者 2', location: null, preference: 'auto', color: PARTICIPANT_COLORS[1] },
+  { id: 'p1', name: '参与者 1', location: null, preference: 'auto', transit_strategy: 0, color: PARTICIPANT_COLORS[0] },
+  { id: 'p2', name: '参与者 2', location: null, preference: 'auto', transit_strategy: 0, color: PARTICIPANT_COLORS[1] },
 ];
 let departureTime = null;
 let searchDebounceTimer = null;
@@ -1055,9 +1061,13 @@ function renderParticipants() {
       </div>
       <div class="participant-pref-label">出行方式</div>
       <div class="transport-pref">
-        ${[['auto','⚡ 最快'],['transit','🚇 地铁'],['cycling','🚲 骑行'],['driving','🚗 驾车'],['walking','🚶 步行']]
+        ${[['auto','⚡ 最快'],['transit','🚇 公共交通'],['cycling','🚲 骑行'],['driving','🚗 驾车'],['walking','🚶 步行']]
           .map(([mode, label]) => `<button class="pref-btn ${participant.preference === mode ? 'active' : ''}" data-mode="${mode}" onclick="setParticipantPreference('${participant.id}', this)">${label}</button>`).join('')}
-      </div>`;
+      </div>
+      ${participant.preference === 'transit' ? `<div class="participant-pref-label">公共交通换乘策略</div>
+        <select class="transit-strategy-select" onchange="setTransitStrategy('${participant.id}', this)">
+          ${TRANSIT_STRATEGIES.map(([value, label]) => `<option value="${value}" ${participant.transit_strategy === value ? 'selected' : ''} ${value === 6 && !participant.location?.poi_id ? 'disabled' : ''}>${value} · ${label}${value === 6 && !participant.location?.poi_id ? '（需从搜索候选选点）' : ''}</option>`).join('')}
+        </select>` : ''}`;
     list.appendChild(card);
   });
   document.getElementById('addParticipantBtn').disabled = participants.length >= 8;
@@ -1072,6 +1082,7 @@ function addParticipant() {
     name: `参与者 ${participantSequence}`,
     location: null,
     preference: 'auto',
+    transit_strategy: 0,
     color: PARTICIPANT_COLORS.find(color => !participants.some(participant => participant.color === color)),
   });
   renderParticipants();
@@ -1096,13 +1107,22 @@ function setParticipantPreference(id, button) {
   const participant = getParticipant(id);
   if (!participant) return;
   participant.preference = button.dataset.mode;
-  button.closest('.transport-pref').querySelectorAll('.pref-btn').forEach(item => {
-    item.classList.toggle('active', item === button);
-  });
+  renderParticipants();
+}
+
+function setTransitStrategy(id, select) {
+  const participant = getParticipant(id);
+  if (participant) participant.transit_strategy = Number(select.value);
+}
+
+function transitStrategyName(value) {
+  return TRANSIT_STRATEGIES.find(([strategy]) => strategy === Number(value))?.[1] || '推荐模式';
 }
 
 function participantPayload() {
-  return participants.map(({ id, name, location, preference }) => ({ id, name, location, preference }));
+  return participants.map(({ id, name, location, preference, transit_strategy }) => ({
+    id, name, location, preference, transit_strategy,
+  }));
 }
 
 // 加载状态模拟
@@ -1256,7 +1276,7 @@ async function doSearchSuggest(participantId, input) {
       item.innerHTML = `<div class="di-name">${escapeHtml(tip.name)}</div><div class="di-addr">${escapeHtml((tip.district || '') + (tip.address || ''))}</div>`;
       item.addEventListener('mousedown', event => {
         event.preventDefault();
-        setLocation(participantId, tip.lng, tip.lat, tip.name);
+        setLocation(participantId, tip.lng, tip.lat, tip.name, tip.poi_id);
       });
       dropdown.appendChild(item);
     });
@@ -1338,10 +1358,11 @@ async function recalcRoutes() {
 // ─────────────────────────────────────────────
 // 设置地点
 // ─────────────────────────────────────────────
-function setLocation(participantId, lng, lat, name) {
+function setLocation(participantId, lng, lat, name, poiId = null) {
   const participant = getParticipant(participantId);
   if (!participant) return;
-  participant.location = { lng: Number(lng), lat: Number(lat), name };
+  participant.location = { lng: Number(lng), lat: Number(lat), name, poi_id: poiId || null };
+  if (participant.transit_strategy === 6 && !poiId) participant.transit_strategy = 0;
   updateMapMarker(participant);
   renderParticipants();
   const markers = Object.values(participantMarkers).filter(Boolean);
@@ -1592,7 +1613,7 @@ function renderPoisByCount(displayN) {
       const participant = getParticipant(route.participant_id);
       const formatted = formatTransport(route);
       return `<div class="route-row" style="--participant-color:${participant?.color || '#78909C'}">
-        <div class="route-person">${escapeHtml(route.participant_name)} · ${modeIcon[route.mode] || '🚇'}</div>
+        <div class="route-person">${escapeHtml(route.participant_name)} · ${modeIcon[route.mode] || '🚇'}${route.mode === 'transit' ? ` ${transitStrategyName(route.strategy)}` : ''}</div>
         <div class="route-summary">${formatted.timeHtml}<span class="route-detail">${escapeHtml(formatted.detail)}</span></div>
       </div>`;
     }).join('');
@@ -1689,7 +1710,7 @@ function addRestaurantMarker(idx, r, modeIcon) {
   marker.on('click', () => {
     const routeRows = (r.routes || []).map(route => {
       const formatted = formatTransport(route);
-      return `<div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:12px;"><span>${escapeHtml(route.participant_name)} ${modeIcon[route.mode] || '🚇'}</span><span>${formatted.timeHtml}</span></div>`;
+      return `<div style="display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:12px;"><span>${escapeHtml(route.participant_name)} ${modeIcon[route.mode] || '🚇'}${route.mode === 'transit' ? ` ${transitStrategyName(route.strategy)}` : ''}</span><span>${formatted.timeHtml}</span></div>`;
     }).join('');
     infoWindow.setContent(`<div style="background:#1A1D26;border:1px solid #2E3350;border-radius:8px;padding:14px;color:#E8EAF0;min-width:240px;max-width:320px;"><div style="font-size:15px;font-weight:700;margin-bottom:6px;">${escapeHtml(r.name)}</div><div style="font-size:12px;color:#8B91A8;">📍 ${escapeHtml(r.address || '')}</div>${routeRows}</div>`);
     infoWindow.open(map, marker.getPosition());

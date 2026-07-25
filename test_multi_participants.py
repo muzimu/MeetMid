@@ -1,7 +1,7 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from amap_client import find_balanced_center
+from amap_client import amap_transit_route, find_balanced_center
 from app_v2 import _validate_participants, app, calculate_routes
 
 
@@ -24,6 +24,38 @@ class MultiParticipantTest(unittest.TestCase):
         result = find_balanced_center(self.participants)
         self.assertEqual(result["midpoint"], {"lng": 117.0, "lat": 40.0})
         self.assertGreaterEqual(result["suggested_search_radius_m"], 500)
+
+    @patch("amap_client._amap_get")
+    def test_transit_v5_forwards_strategy_and_parses_cost_duration(self, amap_get):
+        response = Mock()
+        response.json.return_value = {
+            "status": "1",
+            "route": {
+                "transits": [{
+                    "cost": {"duration": "900", "transit_fee": "3.0"},
+                    "distance": "8000",
+                    "walking_distance": "500",
+                    "segments": [{
+                        "walking": {"distance": "500", "cost": {"duration": "300"}},
+                        "bus": {"buslines": [{"name": "地铁6号线", "distance": "7500"}]},
+                    }],
+                }],
+            },
+        }
+        amap_get.return_value = response
+
+        result = amap_transit_route(
+            116.4, 39.9, 116.5, 39.95,
+            city="北京", strategy=7,
+        )
+
+        url = amap_get.call_args.args[0]
+        params = amap_get.call_args.kwargs["params"]
+        self.assertIn("/v5/direction/transit/integrated", url)
+        self.assertEqual(params["strategy"], 7)
+        self.assertEqual(params["city1"], "110000")
+        self.assertEqual(result["duration_minutes"], 15)
+        self.assertIn("地铁6号线", result["line_summary"])
 
     def test_uses_current_deepseek_model(self):
         import app_v2
@@ -52,6 +84,41 @@ class MultiParticipantTest(unittest.TestCase):
         self.assertEqual(len(result[0]["routes"]), 3)
         self.assertEqual(result[0]["total_time_minutes"], 65)
         self.assertEqual(result[0]["time_range_minutes"], 25)
+
+
+    def test_non_transit_mode_ignores_transit_strategy_requirements(self):
+        participants = [
+            {**self.participants[0], "preference": "driving", "transit_strategy": 6},
+            self.participants[1],
+        ]
+
+        self.assertEqual(_validate_participants(participants), participants)
+
+    @patch("app_v2.amap_get_best_route")
+    def test_route_retry_preserves_transit_strategy_and_poi_ids(self, get_route):
+        participant = {
+            "id": "p1",
+            "name": "甲",
+            "location": {
+                "lng": 116.0,
+                "lat": 39.0,
+                "name": "A",
+                "poi_id": "origin-poi",
+            },
+            "preference": "transit",
+            "transit_strategy": 7,
+        }
+        poi = {"id": "destination-poi", "name": "会合点", "lng": 116.5, "lat": 39.5, "rating": 4.5}
+        get_route.side_effect = [
+            {"success": False, "mode": "transit"},
+            {"success": True, "mode": "transit", "strategy": 7, "duration_minutes": 10, "duration_text": "10分钟"},
+        ]
+
+        result = calculate_routes([poi], [participant], city="北京")
+
+        retry_args = get_route.call_args_list[1].args
+        self.assertEqual(retry_args[7:], (7, "origin-poi", "destination-poi"))
+        self.assertEqual(result[0]["routes"][0]["strategy"], 7)
 
 
 if __name__ == "__main__":
