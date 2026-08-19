@@ -701,7 +701,7 @@ if __name__ == "__main__":
     print(f"  高德地图 API Key:  {'已配置' if AMAP_KEY else '未配置 ⚠️'}")
     print(f"  Session 缓存: 内存（TTL {SESSION_TTL // 3600} 小时）")
     print("=" * 60)
-    print("  访问地址: http://localhost:5000")
+    print("  访问地址: http://127.0.0.1:5000")
     print("=" * 60)
     # threaded=True：每个请求在独立线程中处理，允许多用户同时访问/打开多个网页
     # 不加此参数（或设为 False）时，Flask 单线程串行处理，一个请求卡住会阻塞所有人
